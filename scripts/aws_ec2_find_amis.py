@@ -13,9 +13,30 @@ from tabulate import tabulate
 from colorama import Fore, Style
 import boto3
 
-current_time = datetime.datetime.now()
+CURRENT_TIME = datetime.datetime.now()
 DAYS_THRESHOLD = 30
-date_threshold = current_time - datetime.timedelta(days=DAYS_THRESHOLD)
+DATE_THRESHOLD = CURRENT_TIME - datetime.timedelta(days=DAYS_THRESHOLD)
+
+def parse_arguments():
+    """ Parse args """
+    parser = argparse.ArgumentParser(description='Find AMIs based on region and OS')
+    parser.add_argument('region', type=str, help='AWS region')
+    parser.add_argument('os_version', type=str, help='OS version')
+    args = parser.parse_args()
+    return args.region, args.os_version
+
+def validate_inputs(region, os_version):
+    """ Validate region and OS version if provided"""
+    if region:
+        available_regions = get_available_regions()
+        if region not in available_regions:
+            print(f"Invalid region '{region}'. Available regions:")
+            for regions in available_regions:
+                print(regions)
+            sys.exit()
+
+    if os_version:
+        validate_os_version(os_version)
 
 def get_available_regions():
     """
@@ -25,13 +46,6 @@ def get_available_regions():
     response = ec2_client.describe_regions()
     regions = [region['RegionName'] for region in response['Regions']]
     return regions
-
-def parse_arguments():
-    """ Parse args """
-    parser = argparse.ArgumentParser(description='Find AMIs based on region and OS')
-    parser.add_argument('region', type=str, help='AWS region')
-    parser.add_argument('os_version', type=str, help='OS version')
-    return parser.parse_args()
 
 def validate_os_version(os_version):
     """ Check if the provided OS version and AWS region are valid """
@@ -43,21 +57,6 @@ def validate_os_version(os_version):
     for version in valid_os_versions:
         print(version)
     sys.exit()
-
-args = parse_arguments()
-
-if args.region:
-    specified_region = args.region
-    available_regions = get_available_regions()
-    if specified_region not in available_regions:
-        print(f"Invalid region '{specified_region}'. Available regions:")
-        for region in available_regions:
-            print(region)
-        sys.exit()
-
-if args.os_version:
-    specified_os_version = args.os_version
-    validate_os_version(specified_os_version)
 
 def find_amis(region, os_version):
     """
@@ -76,12 +75,12 @@ def find_amis(region, os_version):
 
     amis = response['Images']
 
-    # Sort the AMIs by architecture type
+    # Sort the AMIs by architecture type and name
     sorted_amis = sorted(amis, key=lambda x: (x['Architecture'], x['Name']))
     latest_amis = []
     for ami in sorted_amis:
         creation_date = datetime.datetime.strptime(ami['CreationDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
-        if creation_date >= date_threshold:
+        if creation_date >= DATE_THRESHOLD:
             latest_amis.append(ami)
 
     table = []
@@ -98,11 +97,11 @@ def find_amis(region, os_version):
 def main():
     """
     Parse user arguments, assign region and os values
+    Validate the region and os values against conditionals
     Lookup latest available AMI's and output them to color-coded table
     """
-    args = parse_arguments()
-    region = args.region
-    os_version = args.os_version
+    region, os_version = parse_arguments()
+    validate_inputs(region, os_version)
     find_amis(region, os_version)
 
 if __name__ == "__main__":
