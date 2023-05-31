@@ -19,8 +19,7 @@ date_threshold = current_time - datetime.timedelta(days=DAYS_THRESHOLD)
 
 def get_available_regions():
     """
-    Check provided region against available AWS regions
-    Check provided OS version is valid against set list of elements
+    Get a list of available AWS regions
     """
     ec2_client = boto3.client('ec2')
     response = ec2_client.describe_regions()
@@ -35,7 +34,7 @@ def parse_arguments():
     return parser.parse_args()
 
 def validate_os_version(os_version):
-    """ Check if the provided OS version is valid """
+    """ Check if the provided OS version and AWS region are valid """
     valid_os_versions = ['amzn2', 'debian-11', 'ubuntu-jammy', 'Windows_Server-2019-English']
     for version in valid_os_versions:
         if os_version.startswith(version):
@@ -62,7 +61,7 @@ if args.os_version:
 
 def find_amis(region, os_version):
     """
-    Output a list of the latest AMI's for the specified
+    Output a list of the latest Amazon owned AMI's for the specified
     region and OS version in color-coded Table format
     """
 
