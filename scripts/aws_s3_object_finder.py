@@ -96,7 +96,7 @@ def search_s3_object(profile_name, bucket_name, object_name, object_prefix):
     print(f"'{object_name}' not found in bucket '{bucket_name}'")
 
 def main():
-    """ Parse args and call either S3 bucket list or object search function """
+    """ Parse args and call either S3 bucket list, prefix list or object search function """
     args = parse_args()
 
     if not args:
