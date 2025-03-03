@@ -1,6 +1,6 @@
 """
 Jenna Sprattler | SRE Kentik | 2023-05-30
-Script to output table listing AMI's < 30 days since release date
+Script to output table listing AMI's < 90 days since release date
 Output based on region and OS version inputs from user at runtime
 Table columns: AMI ID, Name, Architecture and VirtualizationType
 Sorted by Architecture type (x86_64, arm64, etc), then sorted by AMI names
@@ -12,9 +12,10 @@ import datetime
 from tabulate import tabulate
 from colorama import Fore, Style
 import boto3
+import fnmatch
 
 CURRENT_TIME = datetime.datetime.now()
-DAYS_THRESHOLD = 30
+DAYS_THRESHOLD = 90
 DATE_THRESHOLD = CURRENT_TIME - datetime.timedelta(days=DAYS_THRESHOLD)
 
 def parse_arguments():
@@ -30,33 +31,37 @@ def validate_inputs(region, os_version):
     if region:
         available_regions = get_available_regions()
         if region not in available_regions:
-            print(f"Invalid region '{region}'. Available regions:")
+            print(f"Invalid {'region:':<10}  '{region}'")
+            print()
+            print(f"Available regions:")
             for regions in available_regions:
                 print(regions)
             sys.exit()
 
-    if os_version:
-        validate_os_version(os_version)
+    valid_os_versions = get_valid_os_versions()
+    if not os_version or not any(fnmatch.fnmatch(os_version, version) for version in valid_os_versions):
+        print(f"Invalid or missing OS {'version:':<10} '{os_version}'")
+        print()
+        print("Available OS versions:")
+        for version in valid_os_versions:
+            print(version)
+        print()
+        print(f"{'Tip:':<10} Append OS version with more specifics to narrow down results")
+        print(f"{'Example:':<10} 'python aws_ami_finder.py us-east-1 debian-12'")
+        sys.exit()
 
 def get_available_regions():
     """
     Get a list of available AWS regions
     """
-    ec2_client = boto3.client('ec2')
+    ec2_client = boto3.client('ec2', region_name='us-west-2')
     response = ec2_client.describe_regions()
     regions = [region['RegionName'] for region in response['Regions']]
     return regions
 
-def validate_os_version(os_version):
-    """ Check if the provided OS version and AWS region are valid """
-    valid_os_versions = ['amzn2', 'debian-11', 'ubuntu-jammy', 'Windows_Server-2019-English']
-    for version in valid_os_versions:
-        if os_version.startswith(version):
-            return
-    print(f"Invalid OS version '{os_version}'. Available OS versions:")
-    for version in valid_os_versions:
-        print(version)
-    sys.exit()
+def get_valid_os_versions():
+    """ Return the list of valid OS versions """
+    return ['amzn2', 'debian*', 'rhel*', 'suse*', 'ubuntu*', 'Windows*']
 
 def find_amis(region, os_version):
     """
@@ -95,11 +100,17 @@ def find_amis(region, os_version):
     print(tabulate(table, headers=table_headers, tablefmt="grid"))
 
 def main():
-    """
-    Parse user arguments, assign region and os values
-    Validate the region and os values against conditionals
-    Lookup latest available AMI's and output them to color-coded table
-    """
+    if len(sys.argv) < 3:
+        print(f"{'Usage:':<10} python aws_ami_finder.py <region> <os_version>")
+        print()
+        print("Available OS versions:")
+        for version in get_valid_os_versions():
+            print(version)
+        print()
+        print(f"{'Tip:':<10} Append OS version with more specifics to narrow down results")
+        print(f"{'Example:':<10} 'python aws_ami_finder.py us-east-1 debian-12'")
+        sys.exit()
+
     region, os_version = parse_arguments()
     validate_inputs(region, os_version)
     find_amis(region, os_version)
